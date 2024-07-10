@@ -1,6 +1,7 @@
 import re
 import os
 import json
+import streamlit as st
 from bs4 import BeautifulSoup
 import google.generativeai as genai
 from selenium import webdriver
@@ -11,7 +12,7 @@ from langchain_community.document_loaders import RecursiveUrlLoader
 from dotenv import load_dotenv
 load_dotenv()
 
-MAX_TRY = 5
+MAX_TRY = 10
 CUSTOM_HEADER = {
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
     'accept-language': 'en-GB,en;q=0.9',
@@ -32,8 +33,7 @@ gemini = genai.GenerativeModel("gemini-pro")
 
 # compiler for phone and email :
 phone_pattern = re.compile(r'\(?\b[5-9]{3}[-.)\s]?[0-9]{3}[-.\s]?[0-9]{4}\b')
-email_pattern = re.compile(
-    r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
+email_pattern = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
 
 
 def phone_email_extractor(text: str):
@@ -43,7 +43,6 @@ def phone_email_extractor(text: str):
         return emails, phones
     except:
         [], []
-
 
 def whole_contact_detail_byhtml(text: str):
 
@@ -70,8 +69,6 @@ def whole_contact_detail_byhtml(text: str):
                 output['facebook'].append(href)
             elif 'twitter.com' in href.lower() and href not in output['twitter']:
                 output['twitter'].append(href)
-            elif '/x.com' in href.lower() and href not in output['twitter']:
-                output['twitter'].append(href)
             elif 'instagram.com' in href.lower() and href not in output['instagram']:
                 output['instagram'].append(href)
             elif 'youtube.com' in href.lower() and href not in output['youtube']:
@@ -83,7 +80,8 @@ def whole_contact_detail_byhtml(text: str):
 
 
 def bs4_extractor(html: str) -> str:
-    html_1, html_2 = html.split('**||SPLIT||**')
+    html_ = html.split('**||SPLIT||**')
+    html_1, html_2 = html_[0], html_[1]
     soup_1, soup_2 = BeautifulSoup(
         html_1, "lxml"), BeautifulSoup(html_2, "lxml")
     return re.sub(r"\n\n+", "\n\n", soup_1.text).strip() + re.sub(r"\n\n+", "\n\n", soup_2.text).strip()
@@ -206,11 +204,13 @@ def get_ai_suggestion(docs: str):
     retry = 0
     while retry < MAX_TRY:
         try:
-            llm_prompt = ai_suggestion_prompt_template
-            gemini_response = gemini.generate_content(llm_prompt).text
+            gemini_response = gemini.generate_content(ai_suggestion_prompt_template).text
             response = gemini_response[gemini_response.find(
                 '{'):gemini_response.rfind('}')+1]
             response = json.loads(response)
-            return response
+            if response is None : 
+                raise Exception
+            else : 
+                return response
         except:
             retry += 1
