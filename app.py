@@ -1,44 +1,41 @@
 import streamlit as st
-from helpers.utils import AI_SUGGESTION_PROMPT, CONTACT_GENERATION_PROMPT, get_ai_suggestion, selenium_text_loader, get_contact_detail
+from helpers.utils import web_scrapper, bs4_extractor, get_ai_suggestion
 
 st.title('Fetch Details from URL 🔗')
 URL = st.text_input("Please Enter URL")
 st.session_state['URL'] = URL
 
-if st.button("Scrape Data"):
+if st.button("Get Details"):
     with st.spinner("Scrapping Data From Given URL..."):
         url = st.session_state['URL']
-        url_lists, url_pages_content = selenium_text_loader(str(url))
-        st.session_state['url_lists'] = url_lists
-        st.session_state['url_pages_content'] = url_pages_content
+        contact_details, web_html_text = web_scrapper(str(url))
+        st.session_state['contact_details'] = contact_details
+        st.session_state['web_page_content'] = bs4_extractor(web_html_text)[
+            :35000]
         st.success('Scrapped Data Sucessfully ✅✅..')
+    st.divider()
 
-st.write('')
-col_1, col_2 = st.columns(2)
-if col_1.button('Generate Suggestion'):
+    with st.spinner('Fetching Contact-Details..'):
+        st.header('Below is available contact-details')
+        cd = st.session_state['contact_details']
+        for key in cd:
+            if len(cd[key]) > 0:
+                st.header(f'{key} :')
+                for link in cd[key]:
+                    st.write(link)
+        st.success('Contact-Detail fetched Sucessfully ✅✅..')
+    st.divider()
 
-    with st.spinner("Generating..."):
+    with st.spinner('Generating AI Response...'):
 
-        url_pages_content = st.session_state['url_pages_content']
-        url_pages_content = url_pages_content[:40000]
-        response = get_ai_suggestion(url_pages_content, AI_SUGGESTION_PROMPT)
+        page_content = st.session_state['web_page_content']
+        response = get_ai_suggestion(page_content)
 
-        keys = list(response.keys())
+        st.header('Below is AI-Suggesion for your Given Web-Site')
+        for idx, suggestion in enumerate(response):
+            st.header(f'• Suggestion {idx+1}')
+            for k in response[suggestion]:
+                st.write(f':red[{k}]', ':', response[suggestion][k])
 
-        col_1.header('Below is AI-Suggesion for your Given Site')
-        for idx, key in enumerate(keys):
-            col_1.write(f':red[{idx+1}]. {response[key]}')
-
-        col_1.success('Done')
-
-if col_2.button('Fetch Contact Detail'):
-
-    with st.spinner('Fetching Details...'):
-        docs = st.session_state['url_lists']
-        response = get_contact_detail(docs, CONTACT_GENERATION_PROMPT)
-        keys = list(response.keys())
-        col_2.header('Contact Detail')
-        for idx, key in enumerate(keys):
-            col_2.write(f':red[{idx+1}]. {response[key]}')
-
-        col_2.success('Done')
+        st.divider()
+        st.success('Done')
